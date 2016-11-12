@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+
+
+use MIME::Base64;
+use JSON;
+use Digest::SHA;
+
+return {
+  POST => sub {
+    warn 'POST: '. to_json($b);
+    },
+
+  GET => sub {
+    my @c = split /; */, $r->headers_in->{'Cookie'};
+    my %c;
+    foreach my $c(@c) {my ($a, $b) = split '=', $c; $c{$a}=$b;}
+    if ($c{'fbsr_'.$r->dir_config(fb_app_id)}) {
+      my ($fb_sig, $fb_signed_req) = split '\.', $c{'fbsr_'.$r->dir_config(fb_app_id)};
+
+      $fb_req = from_json(decode_base64($fb_signed_req));
+
+      if ($fb_req->{algorithm} eq 'HMAC-SHA256') {
+        my $new_sig = ( Digest::SHA::hmac_sha256_base64($fb_signed_req, $r->dir_config(fb_app_secret)) =~ tr/\/\+/_-/r);
+        if ( $new_sig eq $fb_sig ) {
+          warn "FB cookie signature is confirmed okay.";
+# log this in the DB?
+          $s->{DBH}->do('insert into fb_access(user_id, code, issued_at, session, whenstamp) values (?, ?, ?, ?, now())', undef, ($fb_req->{user_id}, $fb_req->{code}, $fb_req->{issued_at}, $s->{SESSION_ID} ) );
+ 
+#mysql> create table fb_access( id integer unsigned primary key auto_increment, user_id integer unsigned, issued_at timestamp, session integer unsigned, whenstamp datetime);
+
+          } 
+        else { warn "$new_sig, $new_sig, is not equal to \$fb_sig: $fb_sig"; }
+        }
+      else { warn "facebook cookie uses an unrecognized crypto algo: $fb_req->{algorithm}"; }
+    }
+
+    return 0; # 0: proceed with template. 1: return $r->filename()
+    }
+
+  };
+
+
+

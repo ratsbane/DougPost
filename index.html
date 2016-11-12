@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DougPost</title>
+<meta charset="UTF-8">
+<script
+  src="https://code.jquery.com/jquery-3.1.1.min.js"
+  integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+  crossorigin="anonymous">
+</script>
+
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '536759713186208',
+      xfbml      : false,  // if true will parse page looking for other xbfml plugins
+      version    : 'v2.8',
+      status     : true,
+      cookie     : true
+    });
+    FB.Event.subscribe('auth.authResponseChange', initDougPost);
+    //FB.Event.subscribe('auth.statusChange', initDougPost);
+    console.log('FInishing fbAsyncInit.');
+  };
+
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+
+function initDougPost(r) {
+  console.log('r.status is '+r.status);
+  if (r.status === 'connected') { console.log('status: connected to fb and app');}
+  else if (r.status === 'not_authorized') { console.log('status: user has not authorized the app'); }
+  else { console.log('status unknown'); }
+
+
+  console.log('In initDougPost with '+JSON.stringify(r));
+  $('#dpstatus').html(JSON.stringify(r));
+  }
+
+</script>
+
+
+</head>
+
+<body>
+<h2>Manage Pages</h2>
+
+[% 
+require LWP::UserAgent;
+my $ua = LWP::UserAgent->new;
+my $token = 'EAACEdEose0cBAPJa7pYtXtXS33i6n0mS5uqPBXzxxoK0ZBvUeFlyPDT72R6GFICBbA6Se0SK3JjEf8QS4qTKdU5qtCSscmRy2TU5SobReNjtY03kt2Y5EcSCe6K8OgFWA35gxWRnbkggSwxTCR3lCWTD22wK3aq8UZAEz9cwZDZD';
+#my $appsecret_proof= hash_hmac('sha256', $app_access_token, $app_secret);
+my $response = $ua->get('https://graph.facebook.com/me/accounts?access_token='.$token);
+
+if ($response->is_success) {
+#  my $pages = from_json($response->decoded_content)->{data};  # or whatever
+#print to_json($pages);
+#{"data":[
+#  {"access_token":"EAACEdEose0cBABQLZBLJhSqqTebzF8TNVqe96E40RaBA5ON3CZBSTJpCXQt62ZA4J9hx3fEu3LiqKL0zqiEeBZBsaznb289tQm0lNSTDE44ci3nk5dwXtXqshsBuwD9A6TL4bQUsfPYEgQO4XTo5nlZA1apWbpZC0ZBAmF1Gkk3YQZDZD",
+#   "category":"Food & Beverage Company",
+#   "name":"The Broccoli Hut",
+#   "id":"1867222530164676",
+#   "perms":["ADMINISTER","EDIT_PROFILE","CREATE_CONTENT","MODERATE_CONTENT","CREATE_ADS","BASIC_ADMIN"]}],
+#   "paging":{"cursors":{"before":"MTg2NzIyMjUzMDE2NDY3NgZDZD","after":"MTg2NzIyMjUzMDE2NDY3NgZDZD"}}}
+  }
+else {
+  die $response->status_line;
+  }
+
+ %]
+<h2>This is a test of the emergency broadcast system</h2>
+<button onclick='FB.getLoginStatus(initDougPost)'>Check Status</button>
+<div id=dpstatus></div>
+<p>Like this page: <div
+  class="fb-like"
+  data-share="true"
+  data-width="450"
+  data-show-faces="true">
+</div>
+</body>
+
+</html>
