@@ -16,6 +16,9 @@
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.2/jsgrid.min.js"></script>
 
 <script>
+
+  var selectedPage;
+
   window.fbAsyncInit = function() {
     FB.init({
       appId      : '536759713186208',
@@ -41,7 +44,8 @@
 function initDougPost(r) {
   console.log('r.status is '+r.status);
   if (r.status === 'connected') {
-    listPages();
+    if (selectedPage) { listPosts(); }
+    else { listPages(); }
     }
   else if (r.status === 'not_authorized') {
     $('#x').html("<button onclick='FB.login(initDougPost, {scope:&quot;pages_show_list&quot;})'>The app needs your permission to list your pages</button>");
@@ -56,10 +60,62 @@ function initDougPost(r) {
   $('#dpstatus').html(JSON.stringify(r));
   }
 function listPages() {
-console.log('listing pages');
-FB.api('/me/accounts', function(response){ $('#x').html(JSON.stringify(response['data'])); console.log('the response is '+JSON.stringify(response)); });
+  console.log('listing pages');
+  FB.api('/me/accounts', function(response) {
+    var pages = response['data'];
+    $('#x').html("<div id='jsGrid'></div>");
+    $("#jsGrid").jsGrid({
+        width: "60%",
+        height: "400px",
+ 
+        inserting: false,
+        editing: true,
+        sorting: true,
+        paging: true,
+ 
+        data: response['data'],
+        rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
+ 
+        fields: [
+            { name: "name", type: "text", width: "40%" },
+            { name: "category", type: "text", width: "60%" },
+        ]
+      });
+
+     console.log('the response is '+JSON.stringify(response));
+     });
   }
 
+function listPosts() {
+  console.log('listing posts');
+  FB.api('/'+selectedPage['id']+'/posts', function(response) {
+    ///var posts = response['data'].map( function (x) { return { typ  } );
+
+
+    console.log(JSON.stringify(response));
+    $('#x').html("<a href='javascript:selectedPage=null;FB.getLoginStatus(initDougPost);'>Back to list of pages</a><p><div id='jsGrid'></div>");
+    $("#jsGrid").jsGrid({
+        width: "60%",
+        height: "400px",
+ 
+        inserting: false,
+        editing: true,
+        sorting: true,
+        paging: true,
+ 
+        data: response['data'], 
+        rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
+ 
+        fields: [
+            { name: 'type', type: 'text', width: '10%' },
+            { name: "id", type: "text", width: "30%" },
+            { name: "created_time", type: "text", width: "40%" },
+            { name: 'message', type: 'text', width: '20%' }
+        ]
+      });
+    });
+  
+  }
 
 </script>
 
@@ -67,12 +123,11 @@ FB.api('/me/accounts', function(response){ $('#x').html(JSON.stringify(response[
 </head>
 
 <body>
-<h2>Manage Pages</h2>
-<div id=x>
-</div>
+<h2>DougPost</h2>
+<div id=x></div>
 
-<button onclick='FB.getLoginStatus(initDougPost)'>Check Status</button>
-<div id=dpstatus></div>
+
+
 </body>
 
 </html>
