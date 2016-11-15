@@ -14,10 +14,16 @@
 <link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.2/jsgrid-theme.min.css" />
  
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.2/jsgrid.min.js"></script>
-
+<style>
+      body {font-family: Arial, Helvetica, sans-serif}
+      #topdiv {margin: 0 auto; width: 90%;}
+      .perm { font-size: small; border: thin solid blue; background-color:lightBlue;border-radius: 1em;padding:.2em;white-space:nowrap}
+      .permlist { }
+</style>
 <script>
 
   var selectedPage;
+  var permEasyNames = { ADMINISTER: 'Admin', EDIT_PROFILE: 'Edit', CREATE_CONTENT: 'Create Content', MODERATE_CONTENT: 'Moderate', CREATE_ADS: 'Ads', BASIC_ADMIN: 'Basic' };
 
   window.fbAsyncInit = function() {
     FB.init({
@@ -29,6 +35,7 @@
     });
     FB.Event.subscribe('auth.authResponseChange', initDougPost);
     console.log('FInishing fbAsyncInit.');
+    
     FB.getLoginStatus(initDougPost);  // this isn't being called by the authResponseChange event initially... (?)
   };
 
@@ -62,10 +69,16 @@ function initDougPost(r) {
 function listPages() {
   console.log('listing pages');
   FB.api('/me/accounts', function(response) {
-    var pages = response['data'];
-    $('#x').html("<div id='jsGrid'></div>");
+    var pages = response['data'].map( function (x) {
+      return {   id: x['id'],
+               name: x['name'],
+           category: x['category'],
+             access: "<div class='permlist'>"+x['perms'].map( function (x) { return "<span class='perm'>"+permEasyNames[x]+'</span>'; } ).join(' ')+'</div>'
+        }; } );
+
+    $('#x').html("<div id='jsGrid'></div><a href=");
     $("#jsGrid").jsGrid({
-        width: "60%",
+        width: "100%",
         height: "400px",
  
         inserting: false,
@@ -73,12 +86,13 @@ function listPages() {
         sorting: true,
         paging: true,
  
-        data: response['data'],
+        data: pages,
         rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
  
         fields: [
-            { name: "name", type: "text", width: "40%" },
-            { name: "category", type: "text", width: "60%" },
+            { name: "name", title: "Name", type: "text", width: "35%" },
+            { name: "category", title: "Category", type: "text", width: "45%" },
+            { name: "access", title: "Access", type: "text", width: "20%" }
         ]
       });
 
@@ -87,15 +101,20 @@ function listPages() {
   }
 
 function listPosts() {
-  console.log('listing posts');
-  FB.api('/'+selectedPage['id']+'/posts', function(response) {
-    ///var posts = response['data'].map( function (x) { return { typ  } );
 
+  FB.api('/'+selectedPage['id']+'/posts', function(response) {
+    var posts = response['data'].map( function (x) {
+      return {   type: x['message'] ? 'Message' : 'Story',
+              message: x['message'] || x['story'],
+         created_time: x['created_time']
+             };
+     } );
+    
 
     console.log(JSON.stringify(response));
     $('#x').html("<a href='javascript:selectedPage=null;FB.getLoginStatus(initDougPost);'>Back to list of pages</a><p><div id='jsGrid'></div>");
     $("#jsGrid").jsGrid({
-        width: "60%",
+        width: "100%",
         height: "400px",
  
         inserting: false,
@@ -103,14 +122,13 @@ function listPosts() {
         sorting: true,
         paging: true,
  
-        data: response['data'], 
+        data: posts, 
         rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
  
         fields: [
-            { name: 'type', type: 'text', width: '10%' },
-            { name: "id", type: "text", width: "30%" },
-            { name: "created_time", type: "text", width: "40%" },
-            { name: 'message', type: 'text', width: '20%' }
+            { name: 'type', title: 'Type of Post', type: 'text', width: '10%' },
+            { name: "created_time", title: 'When Created', type: "text", width: "40%" },
+            { name: 'message', title: 'Text Content of Post', type: 'text', width: '20%' },
         ]
       });
     });
@@ -123,10 +141,11 @@ function listPosts() {
 </head>
 
 <body>
+<div id=topdiv>
 <h2>DougPost</h2>
 <div id=x></div>
 
-
+</div>
 
 </body>
 
