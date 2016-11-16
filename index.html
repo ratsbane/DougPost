@@ -34,11 +34,6 @@
 
   $( function() {
      $( "#postDialog" ).dialog( { autoOpen: false, width: 'auto', modal: true } );
-     $( "#postDialog" ).validate( {
-        rules: { content: "required" },
-        messages: { content: "Please enter something to post." },
-        submitHandler: savePost
-       } );
     });
 
   window.fbAsyncInit = function() {
@@ -87,6 +82,7 @@ function listPages() {
 
     var pages = response['data'].map( function (x) {
       return {   id: x['id'],
+       access_token: x['access_token'],
                name: x['name'],
            category: x['category'],
               views: "<span id='page_"+x['id']+"views'></span>",  // placeholder for viewcount, to be added later by api callbacks
@@ -165,7 +161,7 @@ function listPosts() {
         deleteConfirm: function(x) { return "The post \"" + JSON.stringify(x) + "\" will be removed. Are you sure?"; },
 
         onItemDeleting: function(grid, row, item) {
-                          console.log('Deleting grid: '+JSON.stringify(grid)+' and row '+JSON.stringify(row)+' and item '+JSON.stringify(item));
+                          console.log('Deleting grid: '+JSON.stringify(grid));
                           FB.api( "/"+item['id'], "DELETE", function (response) { console.log('delete response '+JSON.stringify(response)); if (response && !response.error) { console.log('Successfully deleted '+item['id']); } } );
                           },
 
@@ -188,13 +184,28 @@ function listPosts() {
   }
 
 function newPost() {
-console.log('in newPOst.  Hello.'); 
  
         var d= $("#postDialog").dialog("option", "title", "Add Post");
          d.dialog("open");
     };
 
-function savePost(a,b) {console.log('in savePost with a='+a+' and b is '+b);}
+function savePost(redo) {
+
+  FB.api(
+    "/"+selectedPage.id+"/feed", "POST", { "message": $('#content').val(), access_token: selectedPage.access_token },
+    function (response) { console.log( JSON.stringify(response) );
+         if (response.error && response.error.code==200 ) {
+            if (! redo) { FB.login( savePost(true), { scope: 'publish_pages'} );}
+            else { alert("Sorry! You can't proceed without granting the app permission!"); }
+            }
+         else { 
+            $('#postDialog').dialog('close');
+            $('#content').val('');
+  listPosts();
+            }
+         }
+      );
+  }
 
 </script>
 
@@ -210,19 +221,11 @@ function savePost(a,b) {console.log('in savePost with a='+a+' and b is '+b);}
 <div id="postDialog">
     <form id="detailsForm">
         <div class="details-form-field">
-            <label for="type">Type:</label>
-            <select id="country" name="country">
-                <option value="">(Select)</option>
-                <option value="message">Message</option>
-                <option value="story">Story</option>
-            </select>
-        </div>
-        <div class="details-form-field">
             <label for="content">Content:</label>
             <textarea id="content" name="content" type="text" cols='60' rows=4></textarea
         </div>
         <div class="details-form-field">
-            <button type="submit" id="save">Save</button>
+            <button type="submit" id="save" onclick='savePost(); return false;'>Save</button>
         </div>
     </form>
 </div>
