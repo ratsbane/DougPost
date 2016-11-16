@@ -67,19 +67,19 @@ function initDougPost(r) {
   $('#dpstatus').html(JSON.stringify(r));
   }
 function listPages() {
-  console.log('listing pages');
   var pages = [];
   FB.api('/me/accounts', function(response) {
+
     var pages = response['data'].map( function (x) {
       return {   id: x['id'],
                name: x['name'],
            category: x['category'],
-              views: "<span id='page_"+x['id']+"views'></span>",  // placehoder for viewcount, to be added later by api callbacks
+              views: "<span id='page_"+x['id']+"views'></span>",  // placeholder for viewcount, to be added later by api callbacks
              access: "<div class='permlist'>"+x['perms'].map( function (x) { return "<span class='perm'>"+permEasyNames[x]+'</span>'; } ).join(' ')+'</div>'
         };}
       );
 
-    $('#x').html("<div id='jsGrid'></div><a href=''>Previous</a>");
+    $('#x').html("<div id='jsGrid'></div>");  // TODO add prev/next links
 
     $("#jsGrid").jsGrid({
         width: "100%",
@@ -89,12 +89,14 @@ function listPages() {
         editing: true,
         sorting: true,
         paging: true,
- 
+
+        // onInit runs when jsgrid is through rendering.  It sets up FB api callbacks to populate the viewcount col from FB insights data.
         onInit: function () {
                   response['data'].forEach( function (p) { FB.api( '/' + p.id +'/insights/page_views_total',
-                  function (r) { if (r && !r.error) { console.log('views for '+x['id']);$("#page_"+x['id']+"views").html( 'views: ' + r.data.views.value) } }); } 
-                                                        ) },
-         // TODO (line above) is r.data.views.values the right element?  My pages don't have enough viewcounts to test :(
+                                                                  function (r) { if (r && !r.error) {$("#page_"+p['id']+"views").html( r.data.value ? 'views: ' + r.data.value:'N/A') } }); } 
+                                          )
+                            },
+         // TODO (line above) is r.data.value the right element?  My pages don't have enough viewcounts to test :(
 
         data: pages,
         rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
@@ -102,7 +104,7 @@ function listPages() {
         fields: [
             { name: "name", title: "Name", type: "text", width: "30%" },
             { name: "category", title: "Category", type: "text", width: "40%" },
-            { name: "views", title: "Views", type: "number", width: "10%"},
+            { name: "views", title: "Views", type: "number", width: "10%"}, // TODO there's a bug here in numeric sorting if value is "N/A"
             { name: "access", title: "Access", type: "text", width: "20%" }
         ]
       });
@@ -117,10 +119,10 @@ function listPosts() {
     var posts = response['data'].map( function (x) {
       return {   type: x['message'] ? 'Message' : 'Story',
               message: x['message'] || x['story'],
-         created_time: x['created_time']
+         created_time: x['created_time'],
+                views: "<span id='page_"+x['id']+"views'></span>"  // placeholder for viewcount, to be added later by api callbacks
              };
      } );
-    
 
     console.log(JSON.stringify(response));
     $('#x').html("<a href='javascript:selectedPage=null;FB.getLoginStatus(initDougPost);'>Back to list of pages</a><p><div id='jsGrid'></div>");
@@ -133,18 +135,45 @@ function listPosts() {
         sorting: true,
         paging: true,
  
+        // onInit runs when jsgrid is through rendering.  It sets up FB api callbacks to populate the viewcount col from FB insights data.
+        onInit: function () {
+                  response['data'].forEach( function (p) { FB.api( '/' + p.id +'/insights/page_views_total',
+                                                                  function (r) { if (r && !r.error) {$("#page_"+p['id']+"views").html( r.data.value ? 'views: ' + r.data.value:'N/A') } }); } 
+                                          )
+                            },
+
+        onItemInserted: function(args) {
+          console.log('inserted post'+args);
+          },
+
         data: posts, 
         rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
  
         fields: [
             { name: 'type', title: 'Type of Post', type: 'text', width: '10%' },
-            { name: "created_time", title: 'When Created', type: "text", width: "40%" },
-            { name: 'message', title: 'Text Content of Post', type: 'text', width: '20%' },
+            { name: 'message', title: 'Text Content of Post', type: 'text', width: '50%' },
+            { name: "created_time", title: 'When Created', type: "text", width: "20%" },
+            { name: "views", title: "Views", type: "number", width: "10%"}, // TODO there's a bug here in numeric sorting if value is "N/A"
+            {type: "control",  modeSwitchButton: false, editButton: false, headerTemplate: function() {
+                    return $("<button>").attr("type", "button").text("Add").on("click", function () { showPost("Add", {}); });
+                }
+            }
         ]
       });
     });
   
   }
+
+function showPost(dialogType, p) {
+        $("#type").val(p.type);
+        $("#message").val(p.message);
+ 
+        formSubmitHandler = function() { savePost( p, dialogType === "Add"); };
+ 
+        $("#detailsDialog").dialog("option", "title", dialogType + " Post").dialog("open");
+    };
+
+function savePost(a,b) {console.log('in savePost with a='+a+' and b is '+b);}
 
 </script>
 
