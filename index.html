@@ -3,12 +3,19 @@
 <head>
 <title>DougPost</title>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <script
   src="https://code.jquery.com/jquery-3.1.1.min.js"
   integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
   crossorigin="anonymous">
 </script>
-
+<script
+  src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+  integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+  crossorigin="anonymous">
+</script>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 
 <link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.2/jsgrid.min.css" />
 <link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsgrid/1.5.2/jsgrid-theme.min.css" />
@@ -25,6 +32,15 @@
   var selectedPage;
   var permEasyNames = { ADMINISTER: 'Admin', EDIT_PROFILE: 'Edit', CREATE_CONTENT: 'Create Content', MODERATE_CONTENT: 'Moderate', CREATE_ADS: 'Ads', BASIC_ADMIN: 'Basic' };
 
+  $( function() {
+     $( "#postDialog" ).dialog( { autoOpen: false, width: 'auto', modal: true } );
+     $( "#postDialog" ).validate( {
+        rules: { content: "required" },
+        messages: { content: "Please enter something to post." },
+        submitHandler: savePost
+       } );
+    });
+
   window.fbAsyncInit = function() {
     FB.init({
       appId      : '536759713186208',
@@ -34,7 +50,6 @@
       cookie     : true
     });
     FB.Event.subscribe('auth.authResponseChange', initDougPost);
-    console.log('FInishing fbAsyncInit.');
     
     FB.getLoginStatus(initDougPost);  // this isn't being called by the authResponseChange event initially... (?)
   };
@@ -49,7 +64,7 @@
    }(document, 'script', 'facebook-jssdk'));
 
 function initDougPost(r) {
-  console.log('r.status is '+r.status);
+  //console.log('r.status is '+r.status);
   if (r.status === 'connected') {
     if (selectedPage) { listPosts(); }
     else { listPages(); }
@@ -63,7 +78,7 @@ function initDougPost(r) {
     }
 
 
-  console.log('In initDougPost with '+JSON.stringify(r));
+  //console.log('In initDougPost with '+JSON.stringify(r));
   $('#dpstatus').html(JSON.stringify(r));
   }
 function listPages() {
@@ -109,7 +124,7 @@ function listPages() {
         ]
       });
 
-     console.log('the response is '+JSON.stringify(response));
+     //console.log('the response is '+JSON.stringify(response));
      });
   }
 
@@ -117,21 +132,22 @@ function listPosts() {
 
   FB.api('/'+selectedPage['id']+'/posts', function(response) {
     var posts = response['data'].map( function (x) {
-      return {   type: x['message'] ? 'Message' : 'Story',
+      return {     id: x['id'],
+                 type: x['message'] ? 'Message' : 'Story',
               message: x['message'] || x['story'],
          created_time: x['created_time'],
                 views: "<span id='page_"+x['id']+"views'></span>"  // placeholder for viewcount, to be added later by api callbacks
              };
      } );
 
-    console.log(JSON.stringify(response));
+    //console.log(JSON.stringify(response));
     $('#x').html("<a href='javascript:selectedPage=null;FB.getLoginStatus(initDougPost);'>Back to list of pages</a><p><div id='jsGrid'></div>");
     $("#jsGrid").jsGrid({
         width: "100%",
         height: "400px",
  
         inserting: false,
-        editing: true,
+        editing: false,
         sorting: true,
         paging: true,
  
@@ -146,8 +162,15 @@ function listPosts() {
           console.log('inserted post'+args);
           },
 
+        deleteConfirm: function(x) { return "The post \"" + JSON.stringify(x) + "\" will be removed. Are you sure?"; },
+
+        onItemDeleting: function(grid, row, item) {
+                          console.log('Deleting grid: '+JSON.stringify(grid)+' and row '+JSON.stringify(row)+' and item '+JSON.stringify(item));
+                          FB.api( "/"+item['id'], "DELETE", function (response) { console.log('delete response '+JSON.stringify(response)); if (response && !response.error) { console.log('Successfully deleted '+item['id']); } } );
+                          },
+
         data: posts, 
-        rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
+//        rowClick: function (a) { selectedPage=a.item; FB.getLoginStatus(initDougPost);},
  
         fields: [
             { name: 'type', title: 'Type of Post', type: 'text', width: '10%' },
@@ -155,7 +178,7 @@ function listPosts() {
             { name: "created_time", title: 'When Created', type: "text", width: "20%" },
             { name: "views", title: "Views", type: "number", width: "10%"}, // TODO there's a bug here in numeric sorting if value is "N/A"
             {type: "control",  modeSwitchButton: false, editButton: false, headerTemplate: function() {
-                    return $("<button>").attr("type", "button").text("Add").on("click", function () { showPost("Add", {}); });
+                    return $("<button>").attr("type", "button").text("Add").on("click", function () { newPost("Add", {}); });
                 }
             }
         ]
@@ -164,13 +187,11 @@ function listPosts() {
   
   }
 
-function showPost(dialogType, p) {
-        $("#type").val(p.type);
-        $("#message").val(p.message);
+function newPost() {
+console.log('in newPOst.  Hello.'); 
  
-        formSubmitHandler = function() { savePost( p, dialogType === "Add"); };
- 
-        $("#detailsDialog").dialog("option", "title", dialogType + " Post").dialog("open");
+        var d= $("#postDialog").dialog("option", "title", "Add Post");
+         d.dialog("open");
     };
 
 function savePost(a,b) {console.log('in savePost with a='+a+' and b is '+b);}
@@ -185,6 +206,25 @@ function savePost(a,b) {console.log('in savePost with a='+a+' and b is '+b);}
 <h2>DougPost</h2>
 <div id=x></div>
 
+</div>
+<div id="postDialog">
+    <form id="detailsForm">
+        <div class="details-form-field">
+            <label for="type">Type:</label>
+            <select id="country" name="country">
+                <option value="">(Select)</option>
+                <option value="message">Message</option>
+                <option value="story">Story</option>
+            </select>
+        </div>
+        <div class="details-form-field">
+            <label for="content">Content:</label>
+            <textarea id="content" name="content" type="text" cols='60' rows=4></textarea
+        </div>
+        <div class="details-form-field">
+            <button type="submit" id="save">Save</button>
+        </div>
+    </form>
 </div>
 
 </body>
